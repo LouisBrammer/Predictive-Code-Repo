@@ -1,0 +1,10 @@
+tensorflow
+scikit-learn
+pandas
+matplotlib
+seaborn
+langchain
+openai
+anthropic
+torch
+transformers
