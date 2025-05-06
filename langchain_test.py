@@ -3,7 +3,7 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
 # Initialize OpenAI client
-llm = OpenAI(api_key="your_api_key")
+llm = OpenAI(api_key="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")
 
 # Create a prompt template
 sentiment_prompt = PromptTemplate(
