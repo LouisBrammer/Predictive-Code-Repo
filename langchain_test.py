@@ -17,10 +17,11 @@ chain = sentiment_prompt | llm | StrOutputParser()
 # Example usage
 def analyze_sentiment(text):
     response = chain.invoke({"text": text})
-    return response
+    return response   
 
 if __name__ == "__main__":
     # Example text for testing
     test_text = "Isn't it great that Anny is moving out?."
     result = analyze_sentiment(test_text)
     print(result) 
+
