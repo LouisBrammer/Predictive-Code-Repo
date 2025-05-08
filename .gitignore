@@ -32,6 +32,9 @@ wheels/
 *.m4a
 *.aac
 
+# Data files
+data/**/*.npy
+
 # IDE specific files
 .idea/
 .vscode/
