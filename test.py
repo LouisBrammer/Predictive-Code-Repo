@@ -15,14 +15,9 @@ y_train = labels['train']      # Shape: (samples, num_classes)
 # Define a model that can handle sequential data
 model = models.Sequential([
     # Input shape: (sequence_length, embedding_dim)
-    layers.Conv1D(64, kernel_size=3, activation='relu', input_shape=(600, 50)),
-    layers.MaxPooling1D(pool_size=2),
-    layers.Conv1D(128, kernel_size=3, activation='relu'),
-    layers.MaxPooling1D(pool_size=2),
-    layers.LSTM(128, return_sequences=True),
-    layers.LSTM(64),
+    layers.Dense(128, activation='relu', input_shape=(600, 50)),
     layers.Dense(64, activation='relu'),
-    layers.Dropout(0.2),
+    layers.GlobalAveragePooling1D(),  # Reduce sequence dimension
     layers.Dense(y_train.shape[1], activation='sigmoid')
 ])
 
