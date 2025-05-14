@@ -39,7 +39,7 @@ with open(glove_path, encoding='utf8') as f:
         word = values[0]
         coefs = np.asarray(values[1:], dtype='float32')
         embeddings_index[word] = coefs
-
+ 
 # 4. Prepare embedding matrix
 word_index = tokenizer.word_index
 num_words = min(max_words, len(word_index) + 1)
@@ -75,3 +75,42 @@ model.summary()
 
 # 6. Train
 model.fit(X, y, epochs=5, batch_size=2, verbose=1)
+
+def prediction_pipeline(text, model, tokenizer, max_len):
+    """
+    Pipeline function that handles all preprocessing steps and returns the prediction.
+    
+    Args:
+        text (str): Input text to predict
+        model: Trained model
+        tokenizer: Fitted tokenizer
+        max_len (int): Maximum sequence length
+    
+    Returns:
+        numpy.ndarray: Model prediction
+    """
+    # Convert text to sequence
+    sequence = tokenizer.texts_to_sequences([text])
+    print("\nText to sequence conversion:")
+    print(f"Input text: {text}")
+    print(f"Sequence: {sequence}")
+    
+    # Show word to index mapping for the input text
+    print("\nWord to index mapping:")
+    for word in text.split():
+        print(f"'{word}' -> {tokenizer.word_index.get(word, 'Not in vocabulary')}")
+    
+    # Pad sequence
+    padded = pad_sequences(sequence, maxlen=max_len)
+    print(f"\nPadded sequence (shape: {padded.shape}):")
+    print(padded)
+    
+    # Get prediction
+    prediction = model.predict(padded, verbose=0)
+    return prediction
+
+# Test the pipeline with a longer example
+test_text = "I love machine learning and deep learning"
+prediction = prediction_pipeline(test_text, model, tokenizer, max_len)
+print("\nFinal prediction:")
+print(prediction) 
