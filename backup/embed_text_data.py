@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from text_embedder import TextEmbedder
+from backup.text_embedder import TextEmbedder
 from typing import Union, List, Optional
 import os
 

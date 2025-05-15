@@ -14,8 +14,8 @@ tf.config.set_visible_devices([], 'GPU')
 # Base path for the dataset
 dataset_path = 'data/aclImdb'
 
-train_dataset = keras.utils.text_dataset_from_directory(os.path.expanduser(dataset_path), batch_size=32)
-valid_dataset = keras.utils.text_dataset_from_directory(os.path.expanduser(dataset_path), batch_size=32)
+train_dataset = keras.utils.text_dataset_from_directory(os.path.expanduser(dataset_path), batch_size=32)    #batch size needs to be changed here
+valid_dataset = keras.utils.text_dataset_from_directory(os.path.expanduser(dataset_path), batch_size=32)    #batch size needs to be changed here
 
 
 # 1. Prepare text data from dataset
@@ -96,7 +96,7 @@ model.summary()
 
 # 6. Train
 early_stop = EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True)
-model.fit(X, y, epochs=10, batch_size=128, verbose=1, callbacks=[early_stop])
+model.fit(X, y, epochs=10, verbose=1, callbacks=[early_stop])
 
 
 # 6.B STORE MODEL
