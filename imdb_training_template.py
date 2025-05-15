@@ -44,7 +44,7 @@ y = np.array(labels)
 # 3. Load GloVe embeddings
 embedding_dim = 50
 embeddings_index = {}
-current_dir = os.path.dirname(os.path.abspath(__file__))
+
 glove_path = 'glove.6B.50d.txt'
 with open(glove_path, encoding='utf8') as f:
     for line in f:
