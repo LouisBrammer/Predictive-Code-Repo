@@ -7,6 +7,7 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping
+import pickle
 
 # Hides the GPU from TensorFlow
 tf.config.set_visible_devices([], 'GPU') 
@@ -14,8 +15,16 @@ tf.config.set_visible_devices([], 'GPU')
 # Base path for the dataset
 dataset_path = 'data/aclImdb'
 
-train_dataset = keras.utils.text_dataset_from_directory(os.path.expanduser(dataset_path), batch_size=32)    #batch size needs to be changed here
-valid_dataset = keras.utils.text_dataset_from_directory(os.path.expanduser(dataset_path), batch_size=32)    #batch size needs to be changed here
+train_dataset = keras.utils.text_dataset_from_directory(
+    os.path.expanduser(os.path.join(dataset_path, 'train')),
+    class_names=['neg', 'pos'],
+    batch_size=64
+)
+
+valid_dataset = keras.utils.text_dataset_from_directory(
+    os.path.expanduser(os.path.join(dataset_path, 'test')),
+    batch_size=64
+)
 
 
 # 1. Prepare text data from dataset
@@ -40,6 +49,13 @@ tokenizer.fit_on_texts(texts)
 sequences = tokenizer.texts_to_sequences(texts)
 X = pad_sequences(sequences, maxlen=max_len)
 y = np.array(labels)
+
+
+
+# After fitting the tokenizer
+# Save it
+with open("tokenizer1.pkl", "wb") as f:
+    pickle.dump(tokenizer, f)
 
 # 3. Load GloVe embeddings
 embedding_dim = 50
@@ -66,6 +82,7 @@ for word, i in word_index.items():
 
 ## CHANGE FROM HERE ONWARDS
 
+"""
 # 5. Build a simple model
 model = models.Sequential([
     layers.InputLayer(input_shape=(max_len,)),
@@ -87,20 +104,53 @@ model = models.Sequential([
 model.compile(
     optimizer='adam',
     loss='binary_crossentropy',
-    metrics=['accuracy', 'AUC']  # Added AUC metric for better evaluation
+    metrics=['accuracy', 'AUC', 'Precision', 'Recall']  # Added AUC metric for better evaluation
 )
 
 model.summary()
 
-
-
 # 6. Train
-early_stop = EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True)
-model.fit(X, y, epochs=10, verbose=1, validation_split=0.2, callbacks=[early_stop])
+early_stop = EarlyStopping(monitor='val_auc', mode='max', patience=2, restore_best_weights=True)
+model.fit(X, y, epochs=30, verbose=1, validation_split=0.2, callbacks=[early_stop])
 
 
 # 6.B STORE MODEL
-model.save('model.keras')
+model.save('imdb_conv2.keras')
+
+"""
+
+# other model using GRU alternative - according with the paper: Comparative Study of CNN and RNN for Natural Language Processing the ideal batch size is 50
+gru_units = 256
+gru_model = models.Sequential([
+    layers.InputLayer(input_shape=(max_len,)),
+    layers.Embedding(
+        input_dim=num_words,
+        output_dim=embedding_dim,
+        weights=[embedding_matrix],
+        trainable=False
+    ),
+    layers.SpatialDropout1D(0.2),  # Dropout for embeddings
+    layers.Bidirectional(layers.GRU(gru_units, return_sequences=False)),
+    layers.Dropout(0.5),
+    layers.Dense(100, activation='relu'),
+    layers.Dropout(0.3),
+    layers.Dense(y.shape[1], activation='sigmoid') 
+])
+gru_model.compile(optimizer='adam',
+              loss='binary_crossentropy', 
+              metrics=['accuracy', 'AUC', 'Precision', 'Recall'])
+model = gru_model
+
+early_stop = EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True)
+model.fit(X, y, epochs=10, verbose=1, validation_split=0.2, callbacks=[early_stop])
+
+model.summary()
+
+model.save('imdb_gru.keras')
+
+
+
+
 
 
 #7. Prediction Pipeline
@@ -119,7 +169,9 @@ def prediction_pipeline(text, model, tokenizer, max_len):
     prediction = model.predict(padded, verbose=0)[0][0]
     return "positive" if prediction > 0.5 else "negative"
 
+
+
 # Example usage                                                                 
 text = "This movie was fantastic! I loved it."
 sentiment = prediction_pipeline(text, model, tokenizer, max_len)
-print(f"Sentiment: {sentiment}")                                                                                                                                      
+print(f"Sentiment: {sentiment}")                                                                                                                                        
