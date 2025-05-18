@@ -1,40 +1,33 @@
-import whisper
+import openai_whisper
 import numpy as np
 import queue
 import threading
-import pyaudio
+import sounddevice as sd
 import time
 
 # Load Whisper model
-model = whisper.load_model("base")
+model = whisper.load_model("tiny")
 
 # Setup audio parameters
 CHUNK = 1024
-FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 16000  
+RATE = 16000
 RECORD_SECONDS = 3  # Process in 3-second chunks
 
-# Initialize PyAudio
-p = pyaudio.PyAudio()
+# Initialize audio queue
 audio_queue = queue.Queue()
 
-# Open stream
-stream = p.open(format=FORMAT,
-                channels=CHANNELS,
-                rate=RATE,
-                input=True,
-                frames_per_buffer=CHUNK)
+def record_audio():
+    recording = sd.rec(int(RECORD_SECONDS * RATE), samplerate=RATE, channels=CHANNELS, dtype='float32')
+    sd.wait()
+    return recording
 
 def process_audio():
     while True:
         if not audio_queue.empty():
             audio_data = audio_queue.get()
-            # Convert audio to the format Whisper expects
-            audio_np = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
-            
             # Process with Whisper
-            result = model.transcribe(audio_np)
+            result = model.transcribe(audio_data)
             print(f"Transcription: {result['text']}")
 
 # Start processing thread
@@ -44,19 +37,14 @@ threading.Thread(target=process_audio, daemon=True).start()
 try:
     print("* Recording started - speak into the microphone")
     while True:
-        # Collect audio for RECORD_SECONDS
-        frames = []
-        for _ in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-            data = stream.read(CHUNK)
-            frames.append(data)
-        
+        # Record audio for RECORD_SECONDS
+        audio_data = record_audio()
         # Put audio chunk in queue for processing
-        audio_queue.put(b''.join(frames))
+        audio_queue.put(audio_data)
         
 except KeyboardInterrupt:
     print("* Recording stopped")
 
 # Clean up nn
-stream.stop_stream()
-stream.close()
-p.terminate()   
+sd.stop()
+sd.terminate()   

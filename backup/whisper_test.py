@@ -8,7 +8,12 @@ import scipy.io.wavfile as wav
 import os
 import time
 import signal
+
 import sys
+
+# Print available audio devices
+print("Available audio devices:")
+print(sd.query_devices())
 
 def signal_handler(sig, frame):
     print("\nStopping the recording process...")
@@ -17,7 +22,7 @@ def signal_handler(sig, frame):
 def record_audio(duration=10, sample_rate=16000):
     """Record audio for a specified duration."""
     print(f"Recording for {duration} seconds...")
-    recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='float32')
+    recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='float32', device=0)
     sd.wait()  # Wait until recording is finished
     print("Recording finished!")
     return recording
