@@ -10,7 +10,7 @@ llm = OpenAI(api_key="sk-proj-PrqzAZMZCa13kMShQ5bRPl289qpgTDH72ToSFXD0mw07FEMRiV
 # Create a prompt template
 sentiment_prompt = PromptTemplate(
     input_variables=["text"],
-    template="Analyze the sentiment of the following text and classify it as positive or negative. Also identify the primary emotion expressed. Anwer in a tuple of (sentiment, emotion) Do not include any other text in your response and always answer. Answer like this: (positive, happiness) or (negaitve, hate)\n\nText: {text}"
+    template="Analyze the sentiment of the following text and classify it as positive or negative. Also identify the primary emotion expressed. Answer in a tuple of (sentiment, emotion) Do not include any other text in your response and always answer. For emotions, only answer with the emotion from the list of emotions provided here (anger, annoyance, approval, caring, confusion, curiosity, desire, disappointment, disapproval, disgust, embarrassment, excitement, fear, gratitude, grief, joy,love, nervousness, optimism, pride, realization, relief, remorse, sadness, surprise, neutral). Answer like this: (positive, happiness) or (negaitve, hate). \n\nText: {text}"
 )
 
 # Create the chain using the new pipe syntax

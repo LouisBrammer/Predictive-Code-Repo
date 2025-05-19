@@ -31,3 +31,22 @@ for i, col in enumerate(label_column_names):
 
 # Shuffle the DataFrame and take only 100 rows for testing
 goemotions_valid_df = goemotions_valid_df.sample(frac=1, random_state=42).reset_index(drop=True).head(100)
+
+# Reorder columns 
+goemotions_valid_df = goemotions_valid_df[['texts','processed_text', 'anger', 'annoyance', 'approval', 'caring', 'confusion',
+       'curiosity', 'desire', 'disappointment', 'disapproval', 'disgust',
+       'embarrassment', 'excitement', 'fear', 'gratitude', 'grief', 'joy',
+       'love', 'nervousness', 'optimism', 'pride', 'realization', 'relief',
+       'remorse', 'sadness', 'surprise', 'neutral']]
+
+
+# Function to find the first non-zero emotion label for each row
+def get_true_emotion(row):
+    # Start from index 2 (third column) which is 'anger'
+    for col in row.index[2:]:
+        if row[col] == 1:
+            return col.lower()
+    return None
+
+# Apply function to get true emotion labels
+goemotions_valid_df['true_emotion'] = goemotions_valid_df.apply(get_true_emotion, axis=1)
