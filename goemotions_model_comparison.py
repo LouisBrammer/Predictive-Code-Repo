@@ -232,6 +232,7 @@ def map_cluster_to_sentiment(cluster):
 
 # Load the Keras model
 model = keras.models.load_model('emotion_model_conv_advanced.keras', compile=False)
+transformer_model = keras.models.load_model('emotion_model_transformer.keras', compile=False)
 
 # Load the DataFrame
 goemotions_valid_df = pd.read_csv("emotion_testing_results.csv")
@@ -243,14 +244,17 @@ tokenizer = Tokenizer(num_words=max_words, oov_token="<unk>")
 tokenizer.fit_on_texts(goemotions_valid_df['texts'])
 
 # Create cnn_prediction column using the model's predictions
-def predict_emotion(text):
+def predict_emotion(text, model_type='cnn'):
     # Preprocess the text
     processed_text = preprocess_text(text)
     # Tokenize and pad
     sequence = tokenizer.texts_to_sequences([processed_text])
     padded_sequence = pad_sequences(sequence, maxlen=max_len, padding='post', truncating='post')
     # Get prediction
-    prediction = model.predict(padded_sequence, verbose=0)[0]
+    if model_type == 'cnn':
+        prediction = model.predict(padded_sequence, verbose=0)[0]
+    else:  # transformer
+        prediction = transformer_model.predict(padded_sequence, verbose=0)[0]
     # Get the index of the highest probability
     predicted_index = np.argmax(prediction)
     # Map index to emotion label
@@ -260,15 +264,18 @@ def predict_emotion(text):
                      'pride', 'realization', 'relief', 'remorse', 'sadness', 'surprise', 'neutral']
     return emotion_labels[predicted_index]
 
-# Apply prediction function to create cnn_prediction column
-goemotions_valid_df['cnn_prediction'] = goemotions_valid_df['texts'].apply(predict_emotion)
+# Apply prediction function to create prediction columns
+goemotions_valid_df['cnn_prediction'] = goemotions_valid_df['texts'].apply(lambda x: predict_emotion(x, 'cnn'))
+goemotions_valid_df['transformer_prediction'] = goemotions_valid_df['texts'].apply(lambda x: predict_emotion(x, 'transformer'))
 
-# Create cnn_cluster column by mapping cnn_prediction to its cluster
+# Create cluster columns by mapping predictions to their clusters
 goemotions_valid_df['cnn_cluster'] = goemotions_valid_df['cnn_prediction'].apply(map_emotion_to_cluster)
+goemotions_valid_df['transformer_cluster'] = goemotions_valid_df['transformer_prediction'].apply(map_emotion_to_cluster)
 
 # Print some statistics to verify
 print("\nSample rows with their emotions, clusters, and predictions:")
-print(goemotions_valid_df[['texts', 'true_emotion', 'true_cluster', 'llm_prediction', 'llm_cluster', 'cnn_prediction', 'cnn_cluster']].head(10))
+print(goemotions_valid_df[['texts', 'true_emotion', 'true_cluster', 'llm_prediction', 'llm_cluster', 
+                          'cnn_prediction', 'cnn_cluster', 'transformer_prediction', 'transformer_cluster']].head(10))
 
 # Store the updated DataFrame as a CSV
 goemotions_valid_df.to_csv('emotion_testing_results_updated.csv', index=False)
@@ -280,12 +287,14 @@ print("\nUpdated results saved to 'emotion_testing_results_updated.csv'")
 goemotions_valid_df['sentiment_true'] = goemotions_valid_df['true_cluster'].apply(map_cluster_to_sentiment)
 goemotions_valid_df['cnn_sentiment'] = goemotions_valid_df['cnn_cluster'].apply(map_cluster_to_sentiment)
 goemotions_valid_df['llm_sentiment'] = goemotions_valid_df['llm_cluster'].apply(map_cluster_to_sentiment)
+goemotions_valid_df['transformer_sentiment'] = goemotions_valid_df['transformer_cluster'].apply(map_cluster_to_sentiment)
 
 # Print sample rows to verify sentiment mappings
 print("\nSample rows with clusters and their mapped sentiments:")
 print(goemotions_valid_df[['true_cluster', 'sentiment_true', 
                           'cnn_cluster', 'cnn_sentiment',
-                          'llm_cluster', 'llm_sentiment']].head())
+                          'llm_cluster', 'llm_sentiment',
+                          'transformer_cluster', 'transformer_sentiment']].head())
 
 # Update the CSV with new sentiment columns
 goemotions_valid_df.to_csv('emotion_testing_results_updated.csv', index=False)
@@ -301,15 +310,18 @@ goemotions_valid_df = pd.read_csv('emotion_testing_results_updated.csv')
 print(goemotions_valid_df.head())
 print(goemotions_valid_df.info())
 
-# Calculate metrics for LLM predictions (cluster level)
+# Calculate metrics for all models (cluster level)
 llm_accuracy = accuracy_score(goemotions_valid_df['true_cluster'], goemotions_valid_df['llm_cluster'])
 llm_precision = precision_score(goemotions_valid_df['true_cluster'], goemotions_valid_df['llm_cluster'], average='weighted')
 llm_recall = recall_score(goemotions_valid_df['true_cluster'], goemotions_valid_df['llm_cluster'], average='weighted')
 
-# Calculate metrics for CNN predictions (cluster level)
 cnn_accuracy = accuracy_score(goemotions_valid_df['true_cluster'], goemotions_valid_df['cnn_cluster'])
 cnn_precision = precision_score(goemotions_valid_df['true_cluster'], goemotions_valid_df['cnn_cluster'], average='weighted')
 cnn_recall = recall_score(goemotions_valid_df['true_cluster'], goemotions_valid_df['cnn_cluster'], average='weighted')
+
+transformer_accuracy = accuracy_score(goemotions_valid_df['true_cluster'], goemotions_valid_df['transformer_cluster'])
+transformer_precision = precision_score(goemotions_valid_df['true_cluster'], goemotions_valid_df['transformer_cluster'], average='weighted')
+transformer_recall = recall_score(goemotions_valid_df['true_cluster'], goemotions_valid_df['transformer_cluster'], average='weighted')
 
 # Calculate metrics for sentiment level
 llm_sent_accuracy = accuracy_score(goemotions_valid_df['sentiment_true'], goemotions_valid_df['llm_sentiment'])
@@ -319,6 +331,10 @@ llm_sent_recall = recall_score(goemotions_valid_df['sentiment_true'], goemotions
 cnn_sent_accuracy = accuracy_score(goemotions_valid_df['sentiment_true'], goemotions_valid_df['cnn_sentiment'])
 cnn_sent_precision = precision_score(goemotions_valid_df['sentiment_true'], goemotions_valid_df['cnn_sentiment'], average='weighted')
 cnn_sent_recall = recall_score(goemotions_valid_df['sentiment_true'], goemotions_valid_df['cnn_sentiment'], average='weighted')
+
+transformer_sent_accuracy = accuracy_score(goemotions_valid_df['sentiment_true'], goemotions_valid_df['transformer_sentiment'])
+transformer_sent_precision = precision_score(goemotions_valid_df['sentiment_true'], goemotions_valid_df['transformer_sentiment'], average='weighted')
+transformer_sent_recall = recall_score(goemotions_valid_df['sentiment_true'], goemotions_valid_df['transformer_sentiment'], average='weighted')
 
 print("\nLLM Model Metrics (Cluster Level):")
 print(f"Accuracy: {llm_accuracy:.4f}")
@@ -330,6 +346,11 @@ print(f"Accuracy: {cnn_accuracy:.4f}")
 print(f"Precision: {cnn_precision:.4f}")
 print(f"Recall: {cnn_recall:.4f}")
 
+print("\nTransformer Model Metrics (Cluster Level):")
+print(f"Accuracy: {transformer_accuracy:.4f}")
+print(f"Precision: {transformer_precision:.4f}")
+print(f"Recall: {transformer_recall:.4f}")
+
 print("\nLLM Model Metrics (Sentiment Level):")
 print(f"Accuracy: {llm_sent_accuracy:.4f}")
 print(f"Precision: {llm_sent_precision:.4f}") 
@@ -340,6 +361,11 @@ print(f"Accuracy: {cnn_sent_accuracy:.4f}")
 print(f"Precision: {cnn_sent_precision:.4f}")
 print(f"Recall: {cnn_sent_recall:.4f}")
 
+print("\nTransformer Model Metrics (Sentiment Level):")
+print(f"Accuracy: {transformer_sent_accuracy:.4f}")
+print(f"Precision: {transformer_sent_precision:.4f}")
+print(f"Recall: {transformer_sent_recall:.4f}")
+
 # Generate classification reports
 print("\nLLM Classification Report (Cluster Level):")
 print(classification_report(goemotions_valid_df['true_cluster'], goemotions_valid_df['llm_cluster']))
@@ -347,20 +373,27 @@ print(classification_report(goemotions_valid_df['true_cluster'], goemotions_vali
 print("\nCNN Classification Report (Cluster Level):") 
 print(classification_report(goemotions_valid_df['true_cluster'], goemotions_valid_df['cnn_cluster']))
 
+print("\nTransformer Classification Report (Cluster Level):") 
+print(classification_report(goemotions_valid_df['true_cluster'], goemotions_valid_df['transformer_cluster']))
+
 print("\nLLM Classification Report (Sentiment Level):")
 print(classification_report(goemotions_valid_df['sentiment_true'], goemotions_valid_df['llm_sentiment']))
 
 print("\nCNN Classification Report (Sentiment Level):") 
 print(classification_report(goemotions_valid_df['sentiment_true'], goemotions_valid_df['cnn_sentiment']))
 
-# Create a function to generate comparison plots
-def create_comparison_plot(metrics, llm_scores, cnn_scores, title, filename):
-    x = np.arange(len(metrics))
-    width = 0.35
+print("\nTransformer Classification Report (Sentiment Level):") 
+print(classification_report(goemotions_valid_df['sentiment_true'], goemotions_valid_df['transformer_sentiment']))
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    rects1 = ax.bar(x - width/2, llm_scores, width, label='LLM')
-    rects2 = ax.bar(x + width/2, cnn_scores, width, label='CNN')
+# Create a function to generate comparison plots
+def create_comparison_plot(metrics, llm_scores, cnn_scores, transformer_scores, title, filename):
+    x = np.arange(len(metrics))
+    width = 0.25
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    rects1 = ax.bar(x - width, llm_scores, width, label='LLM')
+    rects2 = ax.bar(x, cnn_scores, width, label='CNN')
+    rects3 = ax.bar(x + width, transformer_scores, width, label='Transformer')
 
     ax.set_ylabel('Scores')
     ax.set_title(title)
@@ -379,6 +412,7 @@ def create_comparison_plot(metrics, llm_scores, cnn_scores, title, filename):
 
     autolabel(rects1)
     autolabel(rects2)
+    autolabel(rects3)
 
     plt.tight_layout()
     plt.savefig(filename)
@@ -388,13 +422,15 @@ def create_comparison_plot(metrics, llm_scores, cnn_scores, title, filename):
 metrics = ['Accuracy', 'Precision', 'Recall']
 llm_scores = [llm_accuracy, llm_precision, llm_recall]
 cnn_scores = [cnn_accuracy, cnn_precision, cnn_recall]
-create_comparison_plot(metrics, llm_scores, cnn_scores, 
+transformer_scores = [transformer_accuracy, transformer_precision, transformer_recall]
+create_comparison_plot(metrics, llm_scores, cnn_scores, transformer_scores,
                       'Model Performance Comparison (Cluster Level)', 
                       'model_comparison_cluster.png')
 
 # Create plots for sentiment level metrics
 llm_sent_scores = [llm_sent_accuracy, llm_sent_precision, llm_sent_recall]
 cnn_sent_scores = [cnn_sent_accuracy, cnn_sent_precision, cnn_sent_recall]
-create_comparison_plot(metrics, llm_sent_scores, cnn_sent_scores, 
+transformer_sent_scores = [transformer_sent_accuracy, transformer_sent_precision, transformer_sent_recall]
+create_comparison_plot(metrics, llm_sent_scores, cnn_sent_scores, transformer_sent_scores,
                       'Model Performance Comparison (Sentiment Level)', 
                       'model_comparison_sentiment.png')
