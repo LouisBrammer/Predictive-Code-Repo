@@ -1,4 +1,4 @@
-import openai_whisper
+import whisper
 import numpy as np
 import queue
 import threading
