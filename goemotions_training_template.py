@@ -13,6 +13,7 @@ import re
 import emoji # For emoji conversion
 import contractions # For expanding contractions
 from sklearn.model_selection import train_test_split # Import for train-test split
+from tensorflow.keras.layers import MultiHeadAttention, LayerNormalization, Add, Input, GlobalAveragePooling1D
 
 # Hides the GPU from TensorFlow if not needed or causing issues
 # tf.config.set_visible_devices([], 'GPU')
@@ -181,46 +182,50 @@ for word, i in word_index.items():
 
 print(f"Shape of embedding matrix: {embedding_matrix.shape}")
 
-# 5. Build the CNN model (aligned with the paper)
-# Paper's CNN: Embedding -> Conv1D(256 filters) -> Dropout -> Dense(output)
-# Learning rate: 0.0002, Epochs: 12, Optimizer: Adam, Loss: Binary Cross-entropy
-model = models.Sequential([
-    layers.Embedding(
-        input_dim=num_words,
-        output_dim=embedding_dim,
-        weights=[embedding_matrix],
-        input_length=max_len, 
-        trainable=True
-    ),
-    layers.Conv1D(
-        filters=256,      
-        kernel_size=3,    
-        activation='relu',
-        padding='same'
-    ),
-    layers.Conv1D(
-        filters=256,
-        kernel_size=4,
-        activation='relu',
-        padding='same'
-    ),
-    layers.Conv1D(
-        filters=256,
-        kernel_size=5,
-        activation='relu',
-        padding='same'
-    ),
-    layers.GlobalMaxPooling1D(),
-    layers.Dropout(0.3),  # Increased dropout
-    layers.Dense(512, activation='relu'),  # Added dense layer
-    layers.Dropout(0.3),
-    layers.Dense(y_labels.shape[1], activation='sigmoid')  # Changed activation to 'sigmoid'
-])
+# 5. Build the Transformer model (replacing CNN)
+# Transformer: Embedding -> Positional Encoding -> Stacked Transformer Encoder -> Pooling -> Dense(output)
+
+# Reusable transformer encoder block
+def transformer_encoder_block(x, num_heads, key_dim):
+    attention_output = MultiHeadAttention(num_heads=num_heads, key_dim=key_dim)(x, x)
+    x = Add()([x, attention_output])
+    x = LayerNormalization()(x)
+    ffn_output = layers.Dense(key_dim, activation='relu')(x)
+    x = Add()([x, ffn_output])
+    x = LayerNormalization()(x)
+    return x
+
+inputs = keras.Input(shape=(max_len,))
+embedding_layer = layers.Embedding(
+    input_dim=num_words,
+    output_dim=embedding_dim,
+    weights=[embedding_matrix],
+    input_length=max_len,
+    trainable=True
+)
+x = embedding_layer(inputs)
+
+# Add positional encoding (learnable)
+positional_embedding = layers.Embedding(input_dim=max_len, output_dim=embedding_dim)(tf.range(start=0, limit=max_len, delta=1))
+x = x + positional_embedding
+
+# Stack 3 transformer encoder blocks
+for _ in range(3):
+    x = transformer_encoder_block(x, num_heads=4, key_dim=embedding_dim)
+
+# Pooling and output
+x = GlobalAveragePooling1D()(x)
+x = layers.Dropout(0.3)(x)
+x = layers.Dense(512, activation='relu')(x)
+x = layers.Dropout(0.3)(x)
+outputs = layers.Dense(y_labels.shape[1], activation='softmax')(x)
+
+model = keras.Model(inputs, outputs)
 
 model.build(input_shape=(None, max_len))  # Force model build before summary
 
-# Optimizer with learning rate from the paper
-custom_optimizer = Adam(learning_rate=0.0002)
+# Optimizer with learning rate from the paper and gradient clipping
+custom_optimizer = Adam(learning_rate=0.0002, clipnorm=1.0)
 
 model.compile(
     optimizer=custom_optimizer,
@@ -233,7 +238,7 @@ model.summary()
 # 6. Train the model
 # Paper specifies 12 epochs for the CNN model
 epochs_from_paper = 12
-batch_size = 32 # Common batch size, paper doesn't specify for CNN
+batch_size = 64 
 
 # Early stopping is a good practice, though not explicitly mentioned for the CNN in the paper
 early_stop = EarlyStopping(monitor='val_f1_score', mode='max', patience=3, restore_best_weights=True, verbose=1) # Monitor val_f1_score
@@ -257,7 +262,7 @@ for name, value in zip(test_metric_names, test_results):
 
 
 # 8. Save model
-model_save_path = 'emotion_model_conv_advanced.keras'
+model_save_path = 'emotion_model_transformer2.keras'
 model.save(model_save_path)
 print(f"\nModel saved to {model_save_path}")
 
