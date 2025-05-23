@@ -91,7 +91,8 @@ def analyze_audio(audio):
         
         if audio is None:
             logger.warning("No audio provided")
-            return "No audio provided", "", [], "", ""
+            logger.info(f"Type of emotions: {type([])}, value: {[]}")
+            return "No audio provided", "", {}, "", ""
         
         # Handle the audio input which could be a tuple of (sample_rate, audio_data)
         if isinstance(audio, tuple):
@@ -102,12 +103,14 @@ def analyze_audio(audio):
             audio = temp_file
         elif not isinstance(audio, str):
             logger.error(f"Unexpected audio input type: {type(audio)}")
-            return "Invalid audio input", "", [], "", ""
+            logger.info(f"Type of emotions: {type([])}, value: {[]}")
+            return "Invalid audio input", "", {}, "", ""
             
         # Check if audio file exists and is readable
         if not os.path.exists(audio):
             logger.error(f"Audio file not found: {audio}")
-            return "Audio file not found", "", [], "", ""
+            logger.info(f"Type of emotions: {type([])}, value: {[]}")
+            return "Audio file not found", "", {}, "", ""
             
         # Get audio file info
         try:
@@ -126,22 +129,25 @@ def analyze_audio(audio):
 
         if not transcription.strip():
             logger.warning("No speech detected in audio")
-            return "No speech detected", "", [], "", ""
+            logger.info(f"Type of emotions: {type([])}, value: {[]}")
+            return "No speech detected", "", {}, "", ""
 
         logger.info("Starting sentiment analysis...")
         sentiment = prediction_pipeline(transcription)
         logger.info("Starting emotion analysis...")
         emotions = predict_emotion(transcription)
+        logger.info(f"Type of emotions: {type(emotions)}, value: {emotions}")
         sentiment_llm, emotion_llm = get_sentiment_and_emotion(transcription)
 
         # Clean up temporary file if it was created
         if isinstance(audio, tuple) and os.path.exists("temp_audio.wav"):
             os.remove("temp_audio.wav")
 
-        return transcription, sentiment, emotions, sentiment_llm, emotion_llm
+        return transcription, sentiment, dict(emotions), sentiment_llm, emotion_llm
     except Exception as e:
         logger.error(f"Error in audio analysis: {str(e)}", exc_info=True)
-        return f"Error: {str(e)}", "", [], "", ""
+        logger.info(f"Type of emotions: {type([])}, value: {[]}")
+        return f"Error: {str(e)}", "", {}, "", ""
 
 demo = gr.Interface(
     fn=analyze_audio,
