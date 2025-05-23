@@ -15,7 +15,7 @@ import glob
 import sys
 
 # Set the microphone device index here
-MICROPHONE_DEVICE_INDEX = 1  # 0 = Mikrofon von "Tebbe", 1 = MacBook Air-Mikrofon
+MICROPHONE_DEVICE_INDEX = 0  # 0 = MacBook Air-Mikrofon
 
 # Configuration
 MAX_RECORDINGS = 50  # Maximum number of recordings before stopping
@@ -50,7 +50,14 @@ def signal_handler(sig, frame):
 
 def record_audio(duration=10, sample_rate=16000):
     """Record audio for a specified duration."""
-    print(f"Recording for {duration} seconds...")
+    print(f"\nRecording for {duration} seconds...")
+    print("Get ready to speak...")
+    
+    # Countdown
+    for i in range(3, 0, -1):
+        print(f"Starting in {i}...")
+        time.sleep(1)
+    
     print("Please speak into your microphone...")
     
     # Initialize recording array
@@ -69,8 +76,14 @@ def record_audio(duration=10, sample_rate=16000):
     print("\nRecording finished!")
     
     # Check if we got any audio
-    if np.abs(recording).mean() < 0.01:
-        print("Warning: Very low audio levels detected. Please check your microphone.")
+    avg_level = np.abs(recording).mean()
+    if avg_level < 0.01:
+        print("\n⚠️  WARNING: Very low audio levels detected!")
+        print("Please try:")
+        print("1. Speaking louder")
+        print("2. Moving closer to the microphone")
+        print("3. Checking your system's microphone settings")
+        print(f"Current audio level: {avg_level:.4f}")
     
     return recording
 
@@ -109,38 +122,54 @@ def main():
     
     try:
         for i in range(MAX_RECORDINGS):
-            print(f"\nRecording {i+1} of {MAX_RECORDINGS}")
+            print(f"\n{'='*50}")
+            print(f"Recording {i+1} of {MAX_RECORDINGS}")
+            print(f"{'='*50}")
             
-            # Record audio
-            recording = record_audio(duration=10)  # Record for 10 seconds
-            
-            # Save the recording
-            audio_file = save_audio(recording)
-            
-            # Transcribe the recording
-            print("\nTranscribing...")
-            transcription = transcribe_audio(model, audio_file)
-            
-            # Print the transcription
-            print("\nTranscription:", transcription if transcription.strip() else "[No speech detected]")
-            
-            # Store in DataFrame
-            df = pd.concat([df, pd.DataFrame({"audio_file": [audio_file], "transcription": [transcription]})], ignore_index=True)
-            
-            # Clean up old files if enabled
-            if CLEANUP_OLD_FILES:
-                cleanup_old_files(keep_last=MAX_RECORDINGS)
-            
-            # Wait a bit before next recording
-            if i < MAX_RECORDINGS - 1:  # Don't wait after the last recording
-                time.sleep(1)
+            try:
+                # Record audio
+                recording = record_audio(duration=10)  # Record for 10 seconds
+                
+                # Save the recording
+                audio_file = save_audio(recording)
+                print(f"Saved audio to: {audio_file}")
+                
+                # Transcribe the recording
+                print("\nTranscribing...")
+                transcription = transcribe_audio(model, audio_file)
+                
+                # Print the transcription
+                print("\nTranscription:", transcription if transcription.strip() else "[No speech detected]")
+                
+                # Store in DataFrame
+                df = pd.concat([df, pd.DataFrame({"audio_file": [audio_file], "transcription": [transcription]})], ignore_index=True)
+                print(f"Added transcription to DataFrame. Current size: {len(df)}")
+                
+                # Clean up old files if enabled
+                if CLEANUP_OLD_FILES:
+                    cleanup_old_files(keep_last=MAX_RECORDINGS)
+                
+                # Wait a bit before next recording
+                if i < MAX_RECORDINGS - 1:  # Don't wait after the last recording
+                    print("\nWaiting 2 seconds before next recording...")
+                    time.sleep(2)
+                
+            except Exception as e:
+                print(f"\nError during recording {i+1}: {str(e)}")
+                print("Continuing with next recording...")
+                continue
             
     except KeyboardInterrupt:
         print("\nStopping the recording process...")
     finally:
         # Save DataFrame to CSV
-        df.to_csv(os.path.join(AUDIO_FOLDER, "transcriptions.csv"), index=False)
-        print(f"Transcriptions saved to {os.path.join(AUDIO_FOLDER, 'transcriptions.csv')}")
+        if not df.empty:
+            csv_path = os.path.join(AUDIO_FOLDER, "transcriptions.csv")
+            df.to_csv(csv_path, index=False)
+            print(f"\nTranscriptions saved to {csv_path}")
+            print(f"Total recordings processed: {len(df)}")
+        else:
+            print("\nNo recordings were processed.")
         sys.exit(0)
 
 if __name__ == "__main__":
