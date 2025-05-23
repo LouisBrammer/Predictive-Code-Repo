@@ -9,8 +9,8 @@ import emoji
 import contractions
 
 # Load Keras models and tokenizer
-sentiment_model = keras.models.load_model('imdb_conv2.keras')
-emotion_model = keras.models.load_model('emotion_model_conv_advanced.keras')
+sentiment_model = keras.models.load_model('imdb_gru.keras')
+emotion_model = keras.models.load_model('emotion_model_transformer.keras')
 
 with open("tokenizer1.pkl", "rb") as f:
     tokenizer = pickle.load(f)
