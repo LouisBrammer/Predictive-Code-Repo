@@ -4,7 +4,7 @@ File struture explained below:
 # DEPLOYMENT
 main_pipeline_whisper.py -> runs prediction models based including whisper transcription 
 main_pipeline.py -> runs text-based-input prediction (was used during development)
-
+user_interface.py -> localhost web interface to deploy the above main_pipeline including whisper
 
 # TRAINING 
 goemotions_training_template.py
